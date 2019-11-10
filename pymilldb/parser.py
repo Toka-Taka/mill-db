@@ -1,17 +1,38 @@
 from .lexer import Lexer
+from . import context
+import logging
+
+logger = logging.getLogger('parser')
 
 
 class Token(Lexer):
+    def __init__(self, *args, **kwargs):
+        super(Token, self).__init__(*args, **kwargs)
+        self.is_safe = False
+
     def __eq__(self, other):
         return self.cur_token == other
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def safe(self):
+        self.is_safe = True
+        return self
+
     def __rshift__(self, other):
         if self.cur_token == other:
+            self.is_safe = False
             val = self.cur_value
             self.next()
             return val
         else:
-            raise Exception  # todo: Обработка ошибок
+            if self.is_safe:
+                self.is_safe = False
+                return None
+            else:
+                raise Exception  # todo: Обработка ошибок
 
 
 class Parser(object):
@@ -47,47 +68,66 @@ class Parser(object):
         # CREATE TABLE id LPARENT <column_declaration_list> RPARENT SEMICOLON
         self.token.next()  # self.token >> 'TABLE'
         table_name = self.token >> 'IDENTIFIER'
+        check_name = context.VARIABLES.get(table_name)
+        if check_name:
+            logger.warning('The variable `%s` is already used for the %s.', table_name, check_name)
+            raise Exception
+        else:
+            table = context.Table(table_name)
+            context.TABLES[table_name] = context.Table(table_name)
+            context.VARIABLES[table_name] = 'table'
         self.token >> 'LPARENT'
-        self.column_declaration_list()
+        self.column_declaration_list(table)
         self.token >> 'RPARENT'
         self.token >> 'SEMICOLON'
 
-    def column_declaration_list(self):
+    def column_declaration_list(self, table: context.Table):
         # column_declaration
         # column_declaration_list COMMA column_declaration
-        self.column_declaration()
+        self.column_declaration(table)
         if self.token == 'COMMA':
             self.token.next()  # self.token >> 'COMMA'
-            self.column_declaration_list()
+            self.column_declaration_list(table)
 
-    def column_declaration(self):
+    def column_declaration(self, table: context.Table):
         # id type
         # id type PK
         column_name = self.token >> 'IDENTIFIER'
-        column_type = self.token >> 'TYPE'
+        column_type = self.token >> 'TYPE'  # todo: parse type support size
+        is_pk = False
         if self.token == 'PK':
             self.token.next()  # self.token >> 'PK'
+            is_pk = True
+        table.add_column(context.Column(column_name, column_type, is_pk))
 
     def procedure_declaration(self):
         # CREATE PROCEDURE id LPARENT <parameter_declaration_list> RPARENT BEGIN <statement_list> END SEMICOLON
         self.token.next()  # self.token >> 'PROCEDURE'
         procedure_name = self.token >> 'IDENTIFIER'
-        self.parameter_declaration_list()
+        check_name = context.VARIABLES.get(procedure_name)
+        if check_name:
+            logger.warning('The variable `%s` is already used for the %s.', procedure_name, check_name)
+            raise Exception
+        else:
+            procedure = context.Procedure(procedure_name)
+            context.VARIABLES[procedure_name] = 'procedure'
+            context.PROCEDURES[procedure_name] = procedure
+        self.parameter_declaration_list(procedure)
         self.token >> 'RPARENT'
         self.token >> 'BEGIN'
         self.statement_list()
         self.token >> 'END'
         self.token >> 'SEMICOLON'
 
-    def parameter_declaration_list(self):
+    def parameter_declaration_list(self, procedure: context.Procedure):
         # <parameter_declaration>
         # <parameter_declaration_list> COMMA <parameter_declaration>
-        self.parameter_declaration()
+        self.parameter_declaration(procedure)
         if self.token == 'COMMA':
             self.token.next()  # self.token >> 'COMMA'
-            self.parameter_declaration_list()
+            self.parameter_declaration_list(procedure)
 
-    def parameter_declaration(self):
+    def parameter_declaration(self, procedure: context.Procedure):
         # pid type <parameter_mode>
         parameter_name = self.token >> 'PARAMETER'
         parameter_type = self.token >> 'TYPE'

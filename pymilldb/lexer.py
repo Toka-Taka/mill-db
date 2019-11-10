@@ -1,4 +1,8 @@
+import logging
 import re
+from copy import copy
+
+logger = logging.getLogger('lexer')
 
 END_CHAR = '\000'
 
@@ -55,13 +59,9 @@ TYPES = {
     'text': 'TEXT',
 }
 
-IDENTIFIER = re.compile(r'[A-Za-z][A-Za-z0-9_]*')
-PARAMETER = re.compile(r'@[A-Za-z][A-Za-z0-9_]*')
-INTEGER = re.compile(r'([1-9][0-9]*|0)')
 # Так как мы не используем флаг re.S (single line),
 # то комментарий будет искаться только в пределах одной стоки
 COMMENT = re.compile(r'--.*')
-WHITESPACE = ' \t\n'
 
 
 class Pos(object):
@@ -73,7 +73,7 @@ class Pos(object):
 
     @property
     def char(self):
-        return self.program[self.pos] if self.pos == len(self.program) else END_CHAR
+        return self.program[self.pos] if self.pos < len(self.program) else END_CHAR
 
     def next(self):
         if self.char == '\n':
@@ -95,11 +95,21 @@ class Pos(object):
     def isspace(self):
         return self.char.isspace()
 
+    def __sub__(self, other):
+        return self.program[other.pos: self.pos]
+
+    def __copy__(self):
+        new_pos = Pos(self.program)
+        new_pos.pos = self.pos
+        new_pos.col = self.col
+        new_pos.line = self.line
+        return new_pos
+
     def __str__(self):
         return "<{}:{}>".format(self.line, self.col)
-
-    def __sub__(self, other):
-        return "<{}:{}> - <{}:{}>".format(other.line, other.pos, self.line, self.pos)
+    #
+    # def __sub__(self, other):
+    #     return "<{}:{}> - <{}:{}>".format(other.line, other.pos, self.line, self.pos)
 
 
 class Lexer(object):
@@ -112,6 +122,7 @@ class Lexer(object):
         self.cur_token, self.cur_value, self.cur_raw_value = next(self.__gen_lex)
 
     def next(self):
+        logger.debug('%s %s %s', self.cur_token, self.cur_value, self.cur_raw_value)
         self.cur_token, self.cur_value, self.cur_raw_value = next(self.__gen_lex)
 
     def __lex(self):
@@ -122,7 +133,7 @@ class Lexer(object):
 
             # Проверка на спецсимвол длины 1
             if self.pos.char in "();,=":
-                yield 'SYMBOLS', SYMBOLS[self.pos.char], self.pos.char
+                yield SYMBOLS[self.pos.char], SYMBOLS[self.pos.char], self.pos.char
                 self.pos.next()
                 continue
             # Проверка на спецсимвол длины 2
@@ -131,44 +142,45 @@ class Lexer(object):
                 self.pos.next()
                 c2 = c1 + self.pos.char
                 if c2 in ("<>", "<=", ">="):
-                    yield 'SYMBOLS', SYMBOLS[c2], c2
+                    yield SYMBOLS[c2], SYMBOLS[c2], c2
                     self.pos.next()
                 else:
-                    yield 'SYMBOLS', SYMBOLS[c1], c1
+                    yield SYMBOLS[c1], SYMBOLS[c1], c1
                 continue
             # Проверка на число
             if self.pos.isdecimal():
-                buf = ''
+                start = copy(self.pos)
                 while self.pos.isdecimal():
-                    buf += self.pos.char
                     self.pos.next()
-                yield 'INTEGER', int(buf), buf
+                number = self.pos - start
+                yield 'INTEGER', int(number), number
                 continue
             # Проверка на параметр/идентификатор
             is_param = self.pos.char == '@' and (self.pos.next() or True)
             if self.pos.islower() or self.pos.isupper():
-                buf = ''
+                start = copy(self.pos)
                 while (
                         self.pos.islower() or
                         self.pos.isupper() or
                         self.pos.isdecimal() or
                         self.pos.char == '_'
                 ):
-                    buf += self.pos.char
                     self.pos.next()
+                identifier = self.pos - start
                 if is_param:
-                    yield 'PARAMETER', buf, '@'+buf
+                    yield 'PARAMETER', identifier, '@'+identifier
                 else:
-                    keyword = KEYWORDS.get(buf.lower())
-                    kind = TYPES.get(buf.lower()) if not keyword else None
+                    lower = identifier.lower()
+                    keyword = KEYWORDS.get(lower)
+                    kind = TYPES.get(lower) if not keyword else None
                     yield (
-                        ('KEYWORD', keyword, buf)
+                        (keyword, lower, identifier)
                         if keyword else
-                        ('TYPE', kind, buf)
+                        ('TYPE', kind, identifier)
                         if kind else
-                        ('IDENTIFIER', buf, buf)
+                        ('IDENTIFIER', identifier, identifier)
                     )
                 continue
             #  todo: Exception processing
         while True:
-            yield 'END', END_CHAR, END_CHAR
+            yield 'END_CHAR', END_CHAR, END_CHAR
