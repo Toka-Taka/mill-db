@@ -9,6 +9,7 @@ class Table(object):
         self.columns = {}
         self.indices = {}
         self.meta = {}
+        self.pk_column = None
 
         self.__template = ''
 
@@ -23,5 +24,9 @@ class Table(object):
                 'The column `%s` already exists in the table %s',
                 column_name, self.name
             )
+        elif column.is_pk and self.pk_column is not None:
+            logger.error('Not support multi PK')
         else:
+            self.pk_column = column if column.is_pk else None
             self.columns[column_name] = column
+

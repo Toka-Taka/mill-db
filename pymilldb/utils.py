@@ -1,7 +1,24 @@
+import logging
 import logging.config
 import os
 
 import yaml
+
+
+class MyLogger(logging.Logger):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.is_crashed = False
+
+    def error(self, msg, *args, **kwargs):
+        self.is_crashed = True
+        super().__init__(*args, **kwargs)
+
+    def clear_is_crashed(self):
+        self.is_crashed = False
+
+
+logging.Logger = MyLogger
 
 
 def setup_logging(

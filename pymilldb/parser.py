@@ -16,7 +16,6 @@ class Token(Lexer):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    @property
     def safe(self):
         self.is_safe = True
         return self
@@ -28,8 +27,8 @@ class Token(Lexer):
             self.next()
             return val
         else:
+            self.is_safe = False
             if self.is_safe:
-                self.is_safe = False
                 return None
             else:
                 raise Exception  # todo: Обработка ошибок
@@ -62,7 +61,8 @@ class Parser(object):
             self.procedure_declaration()
         elif self.token == 'SEQUENCE':
             self.sequence_declaration()
-        raise Exception  # todo
+        else:
+            raise Exception  # todo
 
     def table_declaration(self):
         # CREATE TABLE id LPARENT <column_declaration_list> RPARENT SEMICOLON
@@ -70,8 +70,8 @@ class Parser(object):
         table_name = self.token >> 'IDENTIFIER'
         check_name = context.VARIABLES.get(table_name)
         if check_name:
-            logger.warning('The variable `%s` is already used for the %s.', table_name, check_name)
-            raise Exception
+            logger.error('The variable `%s` is already used for the %s.', table_name, check_name)
+            table = context.Table(table_name)
         else:
             table = context.Table(table_name)
             context.TABLES[table_name] = context.Table(table_name)
@@ -79,7 +79,7 @@ class Parser(object):
         self.token >> 'LPARENT'
         self.column_declaration_list(table)
         self.token >> 'RPARENT'
-        self.token >> 'SEMICOLON'
+        self.token.safe() >> 'SEMICOLON'
 
     def column_declaration_list(self, table: context.Table):
         # column_declaration
@@ -106,18 +106,18 @@ class Parser(object):
         procedure_name = self.token >> 'IDENTIFIER'
         check_name = context.VARIABLES.get(procedure_name)
         if check_name:
-            logger.warning('The variable `%s` is already used for the %s.', procedure_name, check_name)
-            raise Exception
+            logger.error('The variable `%s` is already used for the %s.', procedure_name, check_name)
+            procedure = context.Procedure(procedure_name)
         else:
             procedure = context.Procedure(procedure_name)
             context.VARIABLES[procedure_name] = 'procedure'
             context.PROCEDURES[procedure_name] = procedure
         self.parameter_declaration_list(procedure)
         self.token >> 'RPARENT'
-        self.token >> 'BEGIN'
+        self.token.safe() >> 'BEGIN'
         self.statement_list()
-        self.token >> 'END'
-        self.token >> 'SEMICOLON'
+        self.token.safe() >> 'END'
+        self.token.safe() >> 'SEMICOLON'
 
     def parameter_declaration_list(self, procedure: context.Procedure):
         # <parameter_declaration>
@@ -140,7 +140,9 @@ class Parser(object):
             self.token.next()  # self.token >> 'IN'
         elif self.token == 'OUT':
             self.token.next()  # self.token >> 'OUT'
-        raise Exception  # todo
+        else:
+            logging.fatal('')
+            raise Exception  # todo
 
     def statement_list(self):
         # <statement>
