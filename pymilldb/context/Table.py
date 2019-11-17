@@ -1,5 +1,7 @@
 import logging
+
 from .Column import Column
+
 logger = logging.getLogger('Table')
 
 
@@ -20,7 +22,7 @@ class Table(object):
         # todo: Проверка на несколько pk?
         column_name = column.name
         if column_name in self.columns:
-            logger.warning(
+            logger.error(
                 'The column `%s` already exists in the table %s',
                 column_name, self.name
             )
@@ -30,3 +32,9 @@ class Table(object):
             self.pk_column = column if column.is_pk else None
             self.columns[column_name] = column
 
+    def print_tree_node(self):
+        return f"""
+struct {self.name}_tree_item {{
+    
+}}
+        """

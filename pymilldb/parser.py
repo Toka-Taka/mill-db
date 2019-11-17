@@ -1,6 +1,7 @@
-from .lexer import Lexer
-from . import context
 import logging
+
+from . import context
+from .lexer import Lexer
 
 logger = logging.getLogger('parser')
 
@@ -93,12 +94,21 @@ class Parser(object):
         # id type
         # id type PK
         column_name = self.token >> 'IDENTIFIER'
-        column_type = self.token >> 'TYPE'  # todo: parse type support size
+        column_type = self.parse_type()
         is_pk = False
         if self.token == 'PK':
             self.token.next()  # self.token >> 'PK'
             is_pk = True
         table.add_column(context.Column(column_name, column_type, is_pk))
+
+    def parse_type(self):
+        kind = self.token >> 'TYPE'
+        if self.token == 'LPARENT':
+            self.token.next()  # self.token >> 'LPARENT'
+            size = self.token >> 'INTEGER'
+            self.token >> 'RPARENT'
+            return context.get_type_by_name(kind, size)
+        return context.get_type_by_name(kind)
 
     def procedure_declaration(self):
         # CREATE PROCEDURE id LPARENT <parameter_declaration_list> RPARENT BEGIN <statement_list> END SEMICOLON

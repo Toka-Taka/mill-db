@@ -167,56 +167,56 @@ string DataType::signature(string name) {
 	return "";
 }
 
-string DataType::get_format_specifier() {
-	if (this->get_typecode() == DataType::INT)
-		return "%d";
+//string DataType::get_format_specifier() {
+//	if (this->get_typecode() == DataType::INT)
+//		return "%d";
+//
+//	if (this->get_typecode() == DataType::DOUBLE)
+//		return "%f";
+//
+//	if (this->get_typecode() == DataType::FLOAT)
+//		return "%f";
+//
+//	if (this->get_typecode() == DataType::CHAR) {
+//		return "\\\"%s\\\"";
+//	}
+//
+//	return "";
+//}
 
-	if (this->get_typecode() == DataType::DOUBLE)
-		return "%f";
+//string DataType::scan_expr(string column_name) {
+//	if (this->get_typecode() == DataType::INT)
+//		return "sscanf(token, \"%d\", &(arg->" + column_name + "));";
+//
+//	if (this->get_typecode() == DataType::DOUBLE)
+//		return "sscanf(token, \"%lf\", &(arg->" + column_name + "));";
+//
+//	if (this->get_typecode() == DataType::FLOAT)
+//		return "sscanf(token, \"%f\", &(arg->" + column_name + "));";
+//
+//	if (this->get_typecode() == DataType::CHAR) {
+//		return "memcpy(arg->" + column_name + ", token + sizeof(char), strlen(token)-2);";
+//	}
+//
+//	return "";
+//}
 
-	if (this->get_typecode() == DataType::FLOAT)
-		return "%f";
-
-	if (this->get_typecode() == DataType::CHAR) {
-		return "\\\"%s\\\"";
-	}
-
-	return "";
-}
-
-string DataType::scan_expr(string column_name) {
-	if (this->get_typecode() == DataType::INT)
-		return "sscanf(token, \"%d\", &(arg->" + column_name + "));";
-
-	if (this->get_typecode() == DataType::DOUBLE)
-		return "sscanf(token, \"%lf\", &(arg->" + column_name + "));";
-
-	if (this->get_typecode() == DataType::FLOAT)
-		return "sscanf(token, \"%f\", &(arg->" + column_name + "));";
-
-	if (this->get_typecode() == DataType::CHAR) {
-		return "memcpy(arg->" + column_name + ", token + sizeof(char), strlen(token)-2);";
-	}
-
-	return "";
-}
-
-string DataType::init_expr(string column_name) {
-	if (this->get_typecode() == DataType::INT)
-		return "new->" + column_name + " = 0;";
-
-	if (this->get_typecode() == DataType::DOUBLE)
-		return "new->" + column_name + " = 0.0;";
-
-	if (this->get_typecode() == DataType::FLOAT)
-		return "new->" + column_name + " = 0.0;";
-
-	if (this->get_typecode() == DataType::CHAR) {
-		return "memset(new->" + column_name + ", 0, " + to_string(this->get_length()) + ");";
-	}
-
-	return "";
-}
+//string DataType::init_expr(string column_name) {
+//	if (this->get_typecode() == DataType::INT)
+//		return "new->" + column_name + " = 0;";
+//
+//	if (this->get_typecode() == DataType::DOUBLE)
+//		return "new->" + column_name + " = 0.0;";
+//
+//	if (this->get_typecode() == DataType::FLOAT)
+//		return "new->" + column_name + " = 0.0;";
+//
+//	if (this->get_typecode() == DataType::CHAR) {
+//		return "memset(new->" + column_name + ", 0, " + to_string(this->get_length()) + ");";
+//	}
+//
+//	return "";
+//}
 
 string DataType::select_expr(std::string param, std::string column) {
 	if (this->get_typecode() == DataType::INT)

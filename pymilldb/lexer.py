@@ -21,7 +21,7 @@ SYMBOLS = {
 
 KEYWORDS = {
     "table": "TABLE",
-    "join":  "JOIN",
+    "join": "JOIN",
 
     "sequence": "SEQUENCE",
     "nextval": "NEXTVAL",
@@ -168,7 +168,7 @@ class Lexer(object):
                     self.pos.next()
                 identifier = self.pos - start
                 if is_param:
-                    yield 'PARAMETER', identifier, '@'+identifier
+                    yield 'PARAMETER', identifier, '@' + identifier
                 else:
                     lower = identifier.lower()
                     keyword = KEYWORDS.get(lower)
