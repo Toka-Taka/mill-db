@@ -1,6 +1,6 @@
 struct {{ procedure.name }}_out_data {
-    {%- for param in procedure.parameters }
-    {%- if param.mode == 'OUT' }
+    {%- for param in procedure.parameters %}
+    {%- if param.mode == 'OUT' %}
     {{ param.kind.str_out(param.name) }};
     {%- endif %}
     {%- endfor %}
@@ -32,4 +32,6 @@ void {{ procedure.name }}_add(struct {{ procedure.name }}_out* iter, struct {{ p
     memcpy(&(service->set[service->length++]), selected, sizeof(struct {{ procedure.name }}_out_data));
 }
 
-
+{%- for statement in procedure.statements %}
+void {{ procedure.name }}_{{ i }}({% if procedure.mode == 'WRITE' %}PASS{% endif %}  )
+{%- endfor %}

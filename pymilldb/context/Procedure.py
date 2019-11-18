@@ -23,11 +23,3 @@ class Procedure(object):
 
     def add_statement(self, statement: Statement):
         pass
-
-    def print(self):
-        buf = ""
-        buf += f"""
-struct {self.name}_out_data {{
-    
-}};
-        """
