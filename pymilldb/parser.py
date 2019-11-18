@@ -71,7 +71,7 @@ class Parser(object):
         table_name = self.token >> 'IDENTIFIER'
         check_name = context.VARIABLES.get(table_name)
         if check_name:
-            logger.error('The variable `%s` is already used for the %s.', table_name, check_name)
+            logger.error('Table name `%s` is already used for the %s.', table_name, check_name)
             table = context.Table(table_name)
         else:
             table = context.Table(table_name)
@@ -116,7 +116,7 @@ class Parser(object):
         procedure_name = self.token >> 'IDENTIFIER'
         check_name = context.VARIABLES.get(procedure_name)
         if check_name:
-            logger.error('The variable `%s` is already used for the %s.', procedure_name, check_name)
+            logger.error('Procedure name `%s` is already used for the %s.', procedure_name, check_name)
             procedure = context.Procedure(procedure_name)
         else:
             procedure = context.Procedure(procedure_name)
