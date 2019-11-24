@@ -20,32 +20,40 @@ class ArgumentParameter(Argument):
     def __init__(self, parameter: Parameter):
         self.parameter = parameter
 
+    @property
     def print(self):
         return self.parameter.name
 
+    @property
     def signature(self):
         return self.parameter.signature()
 
 
 class ArgumentValue(Argument):
+    @property
     def print(self):
-        pass
+        return
 
+    @property
     def signature(self):
-        pass
+        return
 
 
 class ArgumentSequenceCurrent(Argument):
+    @property
     def print(self):
-        pass
+        return
 
+    @property
     def signature(self):
-        pass
+        return
 
 
 class ArgumentSequenceNext(Argument):
+    @property
     def print(self):
-        pass
+        return
 
+    @property
     def signature(self):
-        pass
+        return

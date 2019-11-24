@@ -54,11 +54,13 @@ class SelectStatement(Statement):
     def print_full_signature(self, procedure_name):
         pass
 
+    @property
     def print_arguments(self):
-        pass
+        return
 
+    @property
     def print_dependencies(self):
-        pass
+        return
 
 
 class InsertStatement(Statement):
@@ -80,8 +82,10 @@ class InsertStatement(Statement):
     def print_full_signature(self, procedure_name):
         pass
 
+    @property
     def print_arguments(self):
-        pass
+        return
 
+    @property
     def print_dependencies(self):
-        pass
+        return

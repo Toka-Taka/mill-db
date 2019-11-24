@@ -1,4 +1,4 @@
-from .Types import BaseType
+from .DataType import BaseType
 
 
 class Column(object):

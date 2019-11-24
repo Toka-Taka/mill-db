@@ -8,5 +8,6 @@ class Parameter(object):
         self.kind = kind
         self.mode = mode
 
+    @property
     def signature(self):
         return self.kind.signature(self.name)
