@@ -29,7 +29,8 @@ class Table(object):
         elif column.is_pk and self.pk_column is not None:
             logger.error('Not support multi PK')
         else:
-            self.pk_column = column if column.is_pk else None
+            if column.is_pk:
+                self.pk_column = column
             self.columns[column_name] = column
 
     def print_tree_node(self):

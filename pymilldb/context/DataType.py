@@ -95,7 +95,7 @@ class ArrayType(BaseType):
         self.size = size
 
     def variable(self, name, prefix=''):
-        return f'{self.type_name} {name} [{self.size}]'
+        return f'{self.type_name} {name}[{self.size}]'
 
     def str_param_for_select(self, name):
         return self.signature(name, 'p_')
@@ -132,7 +132,7 @@ class Char(ArrayType):
         )
 
     def cmp(self, s1, col1, s2, col2, cmp):
-        return f'strcmp({s1}->{col1}, {s2}->{col2}, {self.size}) {cmp} 0'
+        return f'strncmp({s1}->{col1}, {s2}->{col2}, {self.size}) {cmp} 0'
 
     def compare_less_expr(self, s1, col1, s2, col2):
         return self.cmp(s1, col1, s2, col2, '<')

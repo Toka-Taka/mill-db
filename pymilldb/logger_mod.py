@@ -19,7 +19,7 @@ def setup_logging(
         logging.basicConfig(level=default_level)
 
 
-class MyLogger(object):
+class Logger(object):
     is_crashed = False
 
     def __init__(self, logger: logging.Logger):
@@ -27,7 +27,7 @@ class MyLogger(object):
 
     def __getattr__(self, item):
         if item in ('error', 'exception', 'critical', 'fatal'):
-            MyLogger.is_crashed = True
+            Logger.is_crashed = True
         return getattr(self.logger, item)
 
 
@@ -36,7 +36,7 @@ _getLogger = logging.getLogger
 
 # noinspection PyPep8Naming
 def getLogger(name=None):
-    return MyLogger(_getLogger(name))
+    return Logger(_getLogger(name))
 
 
 logging.getLogger = getLogger

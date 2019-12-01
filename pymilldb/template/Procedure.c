@@ -13,7 +13,7 @@ void {{ procedure.name }}_add(struct {{ procedure.name }}_out* iter, struct {{ p
 }
 
 {%- endif %}
-{%- for statement in procedure.statements %}
+{%- for statement in procedure.statements.values() %}
 statement.print_dependencies()
 
 void {{ procedure.name }}_{{ loop.index }}(
@@ -21,7 +21,7 @@ void {{ procedure.name }}_{{ loop.index }}(
     {{ statement.print_full_signature(procedure.name) }}
 {%- elif procedure.mode == 'READ' -%}
     struct {{ procedure.name }}_out* iter
-    {%- for param in procedure.parameters -%}
+    {%- for param in procedure.parameters.values() -%}
         {%- if param.mode == 'IN' -%}
             , {{ param.signature() }}
         {%- endif -%}
@@ -33,8 +33,8 @@ void {{ procedure.name }}_{{ loop.index }}(
 
 {%- endfor %}
 {%- if procedure.mode == 'READ' %}
-void {{ procedure.name }}_init(struct {{ procedure.name }}_out* iter, struct {{ }}_handle* handle // todo
-{%- for param in procedure.parameters -%}
+void {{ procedure.name }}_init(struct {{ procedure.name }}_out* iter, struct {{ context.NAME }}_handle* handle
+{%- for param in procedure.parameters.values() -%}
     {%- if param.mode == 'IN' -%}
         , param.signature()
     {%- endif -%}
@@ -48,7 +48,7 @@ void {{ procedure.name }}_init(struct {{ procedure.name }}_out* iter, struct {{ 
     iter->service.length = 0;
 
     {{ procedure.name }}_1(iter
-    {%- for param in procedure.parameters -%}
+    {%- for param in procedure.parameters.values() -%}
         {%- if param.mode == 'IN' -%}
             , param.name
         {%- endif -%}
@@ -75,7 +75,7 @@ int {{ procedure.name }}_next(struct {{ procedure.name }}_out* iter) {
 {%- endif %}
 {%- if procedure.mode == 'WRITE' %}
 void {{ procedure.name }} ({{ procedure.parameters | map(attribute='signature') | join(', ') }}) {
-    {%- for statement in procedure.statements %}
+    {%- for statement in procedure.statements.values() %}
     {{ procedure.name }}_{{ loop.index }}({{ statement.print_argument }});
     {%- endfor %}
 }

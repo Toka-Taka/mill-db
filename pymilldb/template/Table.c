@@ -1,8 +1,8 @@
 struct {{ table.name }} {
-    {%- for column in table.columns %}
+    {%- for column in table.columns.values() %}
     {{ column.kind.variable(column.name) }};
     {%- endfor %}
-}
+};
 
 struct {{ table.name }}_tree_item* {{ table.name }}_tree_item_new() {
     struct {{ table.name }}_tree_item* new = malloc(sizeof(struct {{ table.name }}_tree_item));
@@ -23,12 +23,12 @@ union {{ table.name }}_page {
 };
 
 int {{ table.name }}_compare(struct {{ table.name }}* s1, struct {{ table.name }}* s2) {
-    {%- for column in table.columns %}
+    {%- for column in table.columns.values() %}
     if ({{ column.kind.compare_greater_expr('s1', column.name, 's2', column.name) }})
-        return 1
+        return 1;
     else if ({{ column.kind.compare_less_expr('s1', column.name, 's2', column.name) }})
-        return -1
-    {%- endfor %}
+        return -1;
+    {% endfor %}
     return 0;
 }
 
@@ -40,7 +40,7 @@ struct {{ table.name }}* {{ table.name }}_new() {
 
 void {{ table.name }}_free(struct {{ table.name }}* deleted) {
     free(deleted);
-    return 0;
+    return;
 }
 
 struct {{ table.name }}** {{ table.name }}_buffer = NULL;
@@ -53,7 +53,7 @@ void {{ table.name }}_buffer_init() {
 }
 
 void {{ table.name }}_buffer_add(struct {{ table.name }}* inserted) {
-    if ({{ table.name }}_buffer_info.count >=  {{ table.name }}_buffer_info.size) {
+    if ({{ table.name }}_buffer_info.count >= {{ table.name }}_buffer_info.size) {
         {{ table.name }}_buffer_info.size *= 2;
         {{ table.name }}_buffer = realloc({{ table.name }}_buffer, {{ table.name }}_buffer_info.size * sizeof(struct {{ table.name }}*));
     }
@@ -76,7 +76,7 @@ int {{ table.name }}_sort_compare(const void* a, const void* b) {
 
 uint64_t {{ table.name }}_write(FILE* file) {
     qsort({{ table.name }}_buffer, {{ table.name }}_buffer_info.count, sizeof(struct {{ table.name }}*), {{ table.name }}_sort_compare);
-    for (uint64_t i = 0, i < {{ table.name }}_buffer_info.count; i++) {
+    for (uint64_t i = 0; i < {{ table.name }}_buffer_info.count; i++) {
         fwrite({{ table.name }}_buffer[i], sizeof(struct {{ table.name }}), 1, file);
     }
 
@@ -94,7 +94,7 @@ uint64_t {{ table.name }}_write(FILE* file) {
     }
 
     struct {{ table.name }}_tree_item* item = {{ table.name }}_tree_item_new();
-    item->key = {{ table.name }}_buffer[i]->{{ table.pk_column.name }};
+    item->key = {{ table.name }}_buffer[0]->{{ table.pk_column.name }};
     item->offset = 0;
     fwrite(item, sizeof(struct {{ table.name }}_tree_item), 1, file);
     {{ table.name }}_tree_item_free(item);
@@ -109,21 +109,21 @@ void {{ table.name }}_index_clean(struct {{ table.name }}_node* node) {
         {{ table.name }}_index_clean(node->childs[i]);
 
     if (node->childs)
-        free(node->childs)
+        free(node->childs);
     free(node);
 }
 
-void {{ table.name }}_index_load(struct {{ }}_handle* handle) { // todo
+void {{ table.name }}_index_load(struct {{ context.NAME  }}_handle* handle) {
     if (handle->header->count[{{ table.name }}_header_count] == 0) {
         handle->{{ table.name }}_root = NULL;
         return;
     }
-    int_32t levels = log(handle->header->count[{{ table.name }}_header_count]) / log({{ table.name }}_CHILDREN) + 1;
+    int32_t levels = log(handle->header->count[{{ table.name }}_header_count]) / log({{ table.name }}_CHILDREN) + 1;
     uint64_t previous_level_count = 0, count = 0;
     struct {{ table.name }}_node** previous_level = NULL;
     struct {{ table.name }}_node** current_level = NULL;
 
-    for (int_32t level = 1; level <= levels; level++) {
+    for (int32_t level = 1; level <= levels; level++) {
         uint64_t current_level_count = (handle->header->count[{{ table.name }}_header_count] + pow({{ table.name }}_CHILDREN, level) - 1) / pow({{ table.name }}_CHILDREN, level);
         current_level = calloc(current_level_count, sizeof(struct {{ table.name }}_node*));
 
@@ -145,7 +145,7 @@ void {{ table.name }}_index_load(struct {{ }}_handle* handle) { // todo
                 continue;
             }
 
-            current_level[i]->childs = calloc({{ table.name }}_CHILDREN, sizeof(struct {{ table.name }}*));
+            current_level[i]->childs = calloc({{ table.name }}_CHILDREN, sizeof(struct {{ table.name }}_node*));
             uint64_t j;
             for (j = 0; j < {{ table.name }}_CHILDREN; j++) {
                 uint64_t k = i * {{ table.name }}_CHILDREN + j;

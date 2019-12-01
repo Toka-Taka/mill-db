@@ -1,6 +1,6 @@
 {%- if procedure.mode == 'READ' %}
 struct {{ procedure.name }}_out_data {
-    {%- for param in procedure.parameters %}
+    {%- for param in procedure.parameters.values() %}
     {%- if param.mode == 'OUT' %}
     {{ param.kind.str_out(param.name) }};
     {%- endif %}
@@ -8,7 +8,7 @@ struct {{ procedure.name }}_out_data {
 };
 
 struct {{ procedure.name }}_out_service {
-    struct {{ }}_handle* handle; // todo
+    struct {{ context.NAME }}_handle* handle;
     struct {{ procedure.name }}_out_data* set;
     int size;
     int length;
@@ -22,8 +22,8 @@ struct {{ procedure.name }}_out {
 
 {%- endif %}
 {%- if procedure.mode == 'READ' %}
-void {{ procedure.name }}_init(struct {{ procedure.name }}_out* iter, struct {{ }}_handle* handle  // todo
-{%- for param in procedure.parameters -%}
+void {{ procedure.name }}_init(struct {{ procedure.name }}_out* iter, struct {{ context.NAME }}_handle* handle
+{%- for param in procedure.parameters.values() -%}
     {%- if param.mode == 'IN' -%}
         , param.signature()
     {%- endif -%}
