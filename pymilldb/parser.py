@@ -123,89 +123,89 @@ class Parser(object):
         self.token.next()  # self.token >> 'PROCEDURE'
         procedure_name = self.token >> 'IDENTIFIER'
         check_name = context.VARIABLES.get(procedure_name)
+        procedure = context.Procedure(procedure_name, 'WRITE')
         if check_name:
             logger.error('Procedure name `%s` is already used for the %s.', procedure_name, check_name)
-            procedure = context.Procedure(procedure_name)
         else:
-            procedure = context.Procedure(procedure_name)
             context.VARIABLES[procedure_name] = 'procedure'
             context.PROCEDURES[procedure_name] = procedure
         self.parameter_declaration_list(procedure)
         self.token >> 'RPARENT'
         self.token.safe() >> 'BEGIN'
-        self.statement_list()
+        statements = self.statement_list(procedure)
         self.token.safe() >> 'END'
         self.token.safe() >> 'SEMICOLON'
 
     @log(logger)
     def parameter_declaration_list(self, procedure: context.Procedure):
         # <parameter_declaration>
-        # <parameter_declaration_list> COMMA <parameter_declaration>
+        # <parameter_declaration> (COMMA <parameter_declaration>)*
         self.parameter_declaration(procedure)
-        if self.token == 'COMMA':
+        while self.token == 'COMMA':
             self.token.next()  # self.token >> 'COMMA'
-            self.parameter_declaration_list(procedure)
+            self.parameter_declaration(procedure)
 
     @log(logger)
     def parameter_declaration(self, procedure: context.Procedure):
-        # pid type <parameter_mode>
+        # pid type IN
+        # pid type OUT
         parameter_name = self.token >> 'PARAMETER'
-        parameter_type = self.token >> 'TYPE'
-        self.parameter_mode()
-
-    @log(logger)
-    def parameter_mode(self):
-        # IN
-        # OUT
+        parameter_type = self.parse_type()
         if self.token == 'IN':
             self.token.next()  # self.token >> 'IN'
+            parameter = context.InputParameter(parameter_name, parameter_type)
         elif self.token == 'OUT':
             self.token.next()  # self.token >> 'OUT'
+            parameter = context.OutputParameter(parameter_name, parameter_type)
+            procedure.mode = 'READ'
         else:
-            logging.fatal('')
             raise Exception  # todo
+        procedure.add_parameter(parameter)
 
     @log(logger)
-    def statement_list(self):
-        # <statement>
-        # <statement_list> <statement>
-        self.statement()
-        if self.token == 'INSERT' or self.token == 'SELECT':
-            self.statement_list()
+    def statement_list(self, procedure: context.Procedure):
+        # <statement>+
+        out = [self.statement(procedure)]
+        while self.token == 'INSERT' or self.token == 'SELECT':
+            out.append(self.statement(procedure))
+        return out
 
     @log(logger)
-    def statement(self):
+    def statement(self, procedure: context.Procedure):
         # <insert_statement>
         # <select_statement>
         if self.token == 'INSERT':
-            self.insert_statement()
+            return self.insert_statement(procedure)
         elif self.token == 'SELECT':
-            self.select_statement()
+            return self.select_statement(procedure)
         raise Exception  # todo
 
     @log(logger)
-    def insert_statement(self):
+    def insert_statement(self, procedure: context.Procedure):
         # INSERT TABLE id VALUES LPARENT <argument_list> RPARENT SEMICOLON
         self.token.next()  # self.token >> 'INSERT'
         self.token >> 'TABLE'
         table_name = self.token >> 'IDENTIFIER'
+        if table_name not in context.TABLES:
+            logger.error('Table %s not found', table_name)
         self.token >> 'VALUES'
         self.token >> 'LPARENT'
-        self.argument_list()
+        arguments = self.argument_list()
         self.token >> 'RPARENT'
         self.token >> 'SEMICOLON'
+        return 'INSERT', table_name, arguments
 
     @log(logger)
-    def argument_list(self):
-        # <argument>
-        # <argument_list> COMMA <argument>
-        self.argument()
-        if self.token == 'COMMA':
+    def argument_list(self, procedure: context.Procedure):
+        # <argument> (COMMA <argument>)*
+        out = [self.argument()]
+        while self.token == 'COMMA':
             self.token.next()  # self.token >> 'COMMA'
-            self.argument_list()
+            out.append(self.argument())
+        return out
 
     @log(logger)
-    def argument(self):
+    def argument(self, procedure: context.Procedure):
         # pid
         # CURRVAL LPARENT id RPARENT
         # NEXTVAL LPARENT id RPARENT
@@ -214,85 +214,70 @@ class Parser(object):
             self.token >> 'LPARENT'
             sequence_name = self.token >> 'IDENTIFIER'
             self.token >> 'RPARENT'
-            return
+            return 'CURRVAL', sequence_name
         elif self.token == 'NEXTVAL':
             self.token.next()  # self.token >> 'NEXTVAL'
             self.token >> 'LPARENT'
             sequence_name = self.token >> 'IDENTIFIER'
             self.token >> 'RPARENT'
-            return
+            return 'NEXTVAL', sequence_name
         parameter_name = self.token >> 'PARAMETER'
+        return 'PARAMETER', parameter_name
 
     @log(logger)
-    def select_statement(self):
+    def select_statement(self, procedure: context.Procedure):
         # SELECT <selection_list> FROM <table_list> WHERE <condition_list> SEMICOLON
         self.token.next()  # self.token >> 'SELECT'
-        selections = self.selection_list()
+        statement = context.SelectStatement()
+        self.selection_list(procedure, statement)
         self.token >> 'FROM'
-        tables = self.table_list()
+        self.table_list(statement)
         self.token >> 'WHERE'
-        self.condition_list()
-        self.token >> 'SEMICOLON'
+        conditions = self.condition_list()
+        self.token.safe() >> 'SEMICOLON'
 
     @log(logger)
-    def selection_list(self):
+    def selection_list(self, procedure: context.Procedure, statement: context.SelectStatement):
         # <selection> (COMMA <selection>)*
-        pair = self.selection()
-        out = [pair]
+        self.selection(procedure, statement)
         while self.token == 'COMMA':
             self.token.next()  # self.token >> 'COMMA'
-            pair = self.selection()
-            out.append(pair)
-        return out
+            self.selection(procedure, statement)
 
     @log(logger)
-    def selection(self):
+    def selection(self, procedure: context.Procedure, statement: context.SelectStatement):
         # id SET pid
         column_name = self.token >> 'IDENTIFIER'
         self.token >> 'SET'
         parameter_name = self.token >> 'PARAMETER'
-        return column_name, parameter_name
+        check_name = procedure.parameters.get(parameter_name)
+        if not check_name:
+            logger.error('Parameter %s not found in procedure parameters', parameter_name)
+        elif not isinstance(check_name, context.OutputParameter):
+            logger.error('The parameter %s must be output', parameter_name)
+        selection = context.Selection(column_name, parameter_name)
+        statement.add_selection(selection)
 
     @log(logger)
-    def table_list(self):
+    def table_list(self, statement: context.SelectStatement):
         # id (JOIN id)*
         table_name = self.token >> 'IDENTIFIER'
-        out = [table_name]
+        check_name = context.TABLES.get(table_name)
+        if not check_name:
+            logger.error('Table %s not found', table_name)
+        else:
+            statement.add_table(check_name)
         while self.token == 'JOIN':
             self.token.next()  # self.token >> 'JOIN'
             table_name = self.token >> 'IDENTIFIER'
-            out.append(table_name)
-        return out
-
-    # @log(logger)
-    # def condition_list(self):
-    #     # <search_cond_not>
-    #     # <search_cond_not> AND <condition_list>
-    #     # <search_cond_not> OR <condition_list>
-    #     # LPARENT <condition_list> RPARENT
-    #     # LPARENT <condition_list> RPARENT AND <condition_list>
-    #     # LPARENT <condition_list> RPARENT OR <condition_list>
-    #     if self.token == 'LPARENT':
-    #         self.token.next()  # self.token >> 'LPARENT'
-    #         self.condition_list()
-    #         self.token >> 'RPARENT'
-    #         if self.token == 'AND':
-    #             self.token.next()  # self.token >> 'AND'
-    #             self.condition_list()
-    #         elif self.token == 'OR':
-    #             self.token.next()  # self.token >> 'OR'
-    #             self.condition_list()
-    #         return
-    #     self.search_cond_not()
-    #     if self.token == 'AND':
-    #         self.token.next()  # self.token >> 'AND'
-    #         self.condition_list()
-    #     elif self.token == 'OR':
-    #         self.token.next()  # self.token >> 'OR'
-    #         self.condition_list()
+            check_name = context.TABLES.get(table_name)
+            if not check_name:
+                logger.error('Table %s not found', table_name)
+            else:
+                statement.add_table(check_name)
 
     @log(logger)
-    def condition_list(self):
+    def condition_list(self, procedure: context.Procedure, statement: context.Statement):
         # <condition_simple> (OR|AND <condition_simple>)*
         cond = self.condition_simple()
         interim_out = [[cond]]
@@ -310,26 +295,12 @@ class Parser(object):
             if len(interim_out) > 1 else
             ('AND', *interim_out[0])
             if len(interim_out[0]) > 1 else
-            interim_out[0]
+            interim_out[0][0]
         )
         return out
 
-    # @log(logger)
-    # def search_cond_not(self):
-    #     # <condition_simple>
-    #     # NOT <condition_simple>
-    #     if self.token == 'NOT':
-    #         self.token.next()  # self.token >> 'NOT'
-    #     self.condition_list()
-
-    # @log(logger)
-    # def condition_simple(self):
-    #     # id <operator> pid
-    #     # id <operator> id
-    #     pass
-
     @log(logger)
-    def condition_simple(self):
+    def condition_simple(self, procedure: context.Procedure, statement: context.Statement):
         if self.token == 'LPARENT':
             self.token.next()  # self.token >> 'LPARENT'
             cond = self.condition_list()
@@ -345,6 +316,11 @@ class Parser(object):
                 cond = context.Condition(left, right, op, False)
             else:
                 right = self.token >> 'PARAMETER'
+                check_name = procedure.parameters.get(right)
+                if not check_name:
+                    logger.error('Parameter %s not found in procedure parameters', right)
+                elif not isinstance(check_name, context.InputParameter):
+                    logger.error('The parameter %s must be input', right)
                 cond = context.Condition(left, right, op, True)
         return cond
 
@@ -358,7 +334,7 @@ class Parser(object):
         # MORE_OR_EQ
         op = self.token
         if op not in ('EQ', 'LESS', 'MORE', 'NOT_EQ', 'LESS_OR_EQ', 'MORE_OR_EQ'):
-            raise Exception
+            raise Exception  # todo
         self.token.next()  # self.token >> ...
         return op
 

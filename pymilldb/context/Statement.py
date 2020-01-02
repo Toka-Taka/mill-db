@@ -1,9 +1,12 @@
 import abc
 from .Table import Table
 from .Argument import Argument
+from .Selection import Selection
 
 
 class Statement(abc.ABC):
+    mode = None
+
     @abc.abstractmethod
     def print(self, procedure_name):
         pass
@@ -22,8 +25,12 @@ class Statement(abc.ABC):
 
 
 class SelectStatement(Statement):
-    def __init__(self, tables):
+    mode = 'SELECT'
+
+    def __init__(self):
         self.tables = {}
+        self.selections = {}
+        self.conditions = {}
 
     def add_table(self, table: Table):
         check_name = self.tables.get(table.name)
@@ -36,7 +43,7 @@ class SelectStatement(Statement):
 
             }
 
-    def add_selection(self, selection):
+    def add_selection(self, selection: Selection):
         pass
 
     def add_condition(self, condition):
@@ -64,6 +71,8 @@ class SelectStatement(Statement):
 
 
 class InsertStatement(Statement):
+    mode = 'INSERT'
+
     def __init__(self, table):
         self.table = table
         self.arguments = []

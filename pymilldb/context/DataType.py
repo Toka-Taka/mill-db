@@ -165,7 +165,7 @@ def get_type_by_name(name: str, size=None):
         logger.error('Type %s needs size setting', name)
         return
     elif not has_size and size is not None:
-        logging.warning('Type %s does not support sizing', name)
+        logging.warning('Type %s does not support sizing. Size ignoring', name)
         size = None
     if has_size:
         return kind(size)
