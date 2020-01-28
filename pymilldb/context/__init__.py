@@ -6,6 +6,7 @@ from .Table import Table
 from .Parameter import InputParameter, OutputParameter
 from .Statement import SelectStatement, InsertStatement
 from .Selection import Selection
+from .Argument import ArgumentParameter, ArgumentSequenceCurrent, ArgumentSequenceNext
 
 NAME = ""
 

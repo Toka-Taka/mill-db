@@ -48,11 +48,10 @@ class Parser(object):
 
     @log(logger)
     def program_element_list(self):
-        # <program_element>
-        # <program_element_list> <program_element>
+        # <program_element>+
         self.program_element()
-        if self.token != 'END_CHAR':
-            self.program_element_list()
+        while self.token != 'END_CHAR':
+            self.program_element()
 
     @log(logger)
     def program_element(self):
@@ -62,10 +61,10 @@ class Parser(object):
         self.token >> 'CREATE'
         if self.token == 'TABLE':
             self.table_declaration()
-        # elif self.token == 'PROCEDURE':
-        #     self.procedure_declaration()
-        # elif self.token == 'SEQUENCE':
-        #     self.sequence_declaration()
+        elif self.token == 'PROCEDURE':
+            self.procedure_declaration()
+        elif self.token == 'SEQUENCE':
+            self.sequence_declaration()
         else:
             raise Exception  # todo
 
@@ -88,12 +87,11 @@ class Parser(object):
 
     @log(logger)
     def column_declaration_list(self, table: context.Table):
-        # column_declaration
-        # column_declaration_list COMMA column_declaration
+        # column_declaration_list (COMMA column_declaration)*
         self.column_declaration(table)
-        if self.token == 'COMMA':
+        while self.token == 'COMMA':
             self.token.next()  # self.token >> 'COMMA'
-            self.column_declaration_list(table)
+            self.column_declaration(table)
 
     @log(logger)
     def column_declaration(self, table: context.Table):
@@ -123,7 +121,8 @@ class Parser(object):
         self.token.next()  # self.token >> 'PROCEDURE'
         procedure_name = self.token >> 'IDENTIFIER'
         check_name = context.VARIABLES.get(procedure_name)
-        procedure = context.Procedure(procedure_name, 'WRITE')
+        procedure = context.Procedure(procedure_name)
+        procedure.set_mode_to_write()
         if check_name:
             logger.error('Procedure name `%s` is already used for the %s.', procedure_name, check_name)
         else:
@@ -132,13 +131,12 @@ class Parser(object):
         self.parameter_declaration_list(procedure)
         self.token >> 'RPARENT'
         self.token.safe() >> 'BEGIN'
-        statements = self.statement_list(procedure)
+        self.statement_list(procedure)
         self.token.safe() >> 'END'
         self.token.safe() >> 'SEMICOLON'
 
     @log(logger)
     def parameter_declaration_list(self, procedure: context.Procedure):
-        # <parameter_declaration>
         # <parameter_declaration> (COMMA <parameter_declaration>)*
         self.parameter_declaration(procedure)
         while self.token == 'COMMA':
@@ -157,27 +155,30 @@ class Parser(object):
         elif self.token == 'OUT':
             self.token.next()  # self.token >> 'OUT'
             parameter = context.OutputParameter(parameter_name, parameter_type)
-            procedure.mode = 'READ'
         else:
-            raise Exception  # todo
+            logger.fatal('Not found parameter type (`in` or `out`)')
+            raise Exception
         procedure.add_parameter(parameter)
 
     @log(logger)
     def statement_list(self, procedure: context.Procedure):
         # <statement>+
-        out = [self.statement(procedure)]
+        self.statement(procedure)
         while self.token == 'INSERT' or self.token == 'SELECT':
-            out.append(self.statement(procedure))
-        return out
+            self.statement(procedure)
 
     @log(logger)
     def statement(self, procedure: context.Procedure):
         # <insert_statement>
         # <select_statement>
         if self.token == 'INSERT':
-            return self.insert_statement(procedure)
+            # if procedure.is_read:
+            #     logger.error('Insert statement only for procedure write mode')
+            self.insert_statement(procedure)
         elif self.token == 'SELECT':
-            return self.select_statement(procedure)
+            # if procedure.is_write:
+            #     logger.error('Select statement only for procedure read mode')
+            self.select_statement(procedure)
         raise Exception  # todo
 
     @log(logger)
@@ -186,26 +187,27 @@ class Parser(object):
         self.token.next()  # self.token >> 'INSERT'
         self.token >> 'TABLE'
         table_name = self.token >> 'IDENTIFIER'
-        if table_name not in context.TABLES:
+        table = context.TABLES.get(table_name)
+        if not table:
             logger.error('Table %s not found', table_name)
+        insert_statement = context.InsertStatement(table)
         self.token >> 'VALUES'
         self.token >> 'LPARENT'
-        arguments = self.argument_list()
+        self.argument_list(procedure, insert_statement)
         self.token >> 'RPARENT'
         self.token >> 'SEMICOLON'
-        return 'INSERT', table_name, arguments
+        procedure.statements.append(insert_statement)
 
     @log(logger)
-    def argument_list(self, procedure: context.Procedure):
+    def argument_list(self, procedure: context.Procedure, insert_statement: context.InsertStatement):
         # <argument> (COMMA <argument>)*
-        out = [self.argument()]
+        self.argument(procedure, insert_statement)
         while self.token == 'COMMA':
             self.token.next()  # self.token >> 'COMMA'
-            out.append(self.argument())
-        return out
+            self.argument(procedure, insert_statement)
 
     @log(logger)
-    def argument(self, procedure: context.Procedure):
+    def argument(self, procedure: context.Procedure, insert_statement: context.InsertStatement):
         # pid
         # CURRVAL LPARENT id RPARENT
         # NEXTVAL LPARENT id RPARENT
@@ -213,16 +215,34 @@ class Parser(object):
             self.token.next()  # self.token >> 'CURRVAL'
             self.token >> 'LPARENT'
             sequence_name = self.token >> 'IDENTIFIER'
+            sequence = context.SEQUENCES.get(sequence_name)
+            if not sequence:
+                logger.error('Sequence %s not found', sequence_name)
+            argument = context.ArgumentSequenceCurrent(sequence_name, sequence)
             self.token >> 'RPARENT'
-            return 'CURRVAL', sequence_name
+            insert_statement.arguments.append(argument)
+
         elif self.token == 'NEXTVAL':
             self.token.next()  # self.token >> 'NEXTVAL'
             self.token >> 'LPARENT'
             sequence_name = self.token >> 'IDENTIFIER'
+            sequence = context.SEQUENCES.get(sequence_name)
+            if not sequence:
+                logger.error('Sequence %s not found', sequence_name)
+            argument = context.ArgumentSequenceNext(sequence_name, sequence)
             self.token >> 'RPARENT'
-            return 'NEXTVAL', sequence_name
-        parameter_name = self.token >> 'PARAMETER'
-        return 'PARAMETER', parameter_name
+            insert_statement.arguments.append(argument)
+
+        elif self.token == 'PARAMETER':
+            parameter_name = self.token >> 'PARAMETER'
+            parameter = procedure.parameters.get(parameter_name)
+            if not parameter:
+                logger.error('Parameter %s not found in procedure parameters', parameter_name)
+            argument = context.ArgumentParameter(parameter_name, parameter)
+            insert_statement.arguments.append(argument)
+
+        else:
+            logger.error('Expected `currval` or `nextval` or <parameter>')
 
     @log(logger)
     def select_statement(self, procedure: context.Procedure):

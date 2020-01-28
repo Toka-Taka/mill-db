@@ -1,12 +1,10 @@
 import abc
-from .Parameter import Parameter
-__all__ = [
-    'Argument',
-    'ArgumentParameter',
-]
 
 
 class Argument(abc.ABC):
+    def __init__(self, name):
+        self.name = name
+
     @abc.abstractmethod
     def print(self):
         pass
@@ -17,16 +15,17 @@ class Argument(abc.ABC):
 
 
 class ArgumentParameter(Argument):
-    def __init__(self, parameter: Parameter):
+    def __init__(self, name, parameter=None):
+        super().__init__(name)
         self.parameter = parameter
 
     @property
     def print(self):
-        return self.parameter.name
+        return
 
     @property
     def signature(self):
-        return self.parameter.signature()
+        return
 
 
 class ArgumentValue(Argument):
@@ -40,6 +39,10 @@ class ArgumentValue(Argument):
 
 
 class ArgumentSequenceCurrent(Argument):
+    def __init__(self, name, sequence=None):
+        super().__init__(name)
+        self.sequence = sequence
+
     @property
     def print(self):
         return
@@ -50,6 +53,10 @@ class ArgumentSequenceCurrent(Argument):
 
 
 class ArgumentSequenceNext(Argument):
+    def __init__(self, name, sequence=None):
+        super().__init__(name)
+        self.sequence = sequence
+
     @property
     def print(self):
         return

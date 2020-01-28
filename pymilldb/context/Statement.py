@@ -76,14 +76,6 @@ class InsertStatement(Statement):
     def __init__(self, table):
         self.table = table
         self.arguments = []
-        self.current_value = []
-        self.next_value = []
-
-    def add_argument(self, arg: Argument):
-        self.arguments.append(arg)
-
-    def add_current_value(self, i: int, name: str):
-        self.current_value[i] = name
 
     def print(self, procedure_name):
         pass

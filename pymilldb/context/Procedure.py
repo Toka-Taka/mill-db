@@ -7,12 +7,30 @@ logger = logging.getLogger('Procedure')
 
 
 class Procedure(object):
-    def __init__(self, name, mode):
-        self.name = name
-        self.mode = mode
+    READ = 'READ'
+    WRITE = 'WRITE'
 
+    @property
+    def is_read(self):
+        return self.mode == self.READ
+
+    @property
+    def is_write(self):
+        return self.mode == self.WRITE
+
+    def set_mode_to_read(self):
+        self.mode = self.READ
+
+    def set_mode_to_write(self):
+        self.mode = self.WRITE
+
+    def __init__(self, name):
+        self.name = name
+
+        self.mode = None
         self.parameters = {}
-        self.statements = {}
+        self.statements = []
+        self._used_parameters = set()
 
     def add_parameter(self, parameter: Parameter):
         check_name = self.parameters.get(parameter.name)
