@@ -73,13 +73,13 @@ class Parser(object):
         # CREATE TABLE id LPARENT <column_declaration_list> RPARENT SEMICOLON
         self.token.next()  # self.token >> 'TABLE'
         table_name = self.token >> 'IDENTIFIER'
+        table = context.Table(table_name)
         check_name = context.VARIABLES.get(table_name)
         if check_name:
             logger.error('Table name `%s` is already used for the %s.', table_name, check_name)
-            table = context.Table(table_name)
         else:
-            table = context.TABLES[table_name] = context.Table(table_name)
             context.VARIABLES[table_name] = 'table'
+            context.TABLES[table_name] = table
         self.token >> 'LPARENT'
         self.column_declaration_list(table)
         self.token >> 'RPARENT'
@@ -128,6 +128,7 @@ class Parser(object):
         else:
             context.VARIABLES[procedure_name] = 'procedure'
             context.PROCEDURES[procedure_name] = procedure
+        self.token >> 'LPARENT'
         self.parameter_declaration_list(procedure)
         self.token >> 'RPARENT'
         self.token.safe() >> 'BEGIN'
@@ -172,14 +173,12 @@ class Parser(object):
         # <insert_statement>
         # <select_statement>
         if self.token == 'INSERT':
-            if procedure.is_read:
-                logger.error('Insert statement only for procedure write mode')
-            procedure.set_mode_to_write()
+            if procedure.mode is None:
+                procedure.set_mode_to_write()
             self.insert_statement(procedure)
         elif self.token == 'SELECT':
-            if procedure.is_write:
-                logger.error('Select statement only for procedure read mode')
-            procedure.set_mode_to_read()
+            if procedure.mode is None:
+                procedure.set_mode_to_read()
             self.select_statement(procedure)
         else:
             logger.fatal('Unreachable exception')
@@ -192,15 +191,19 @@ class Parser(object):
         self.token >> 'TABLE'
         table_name = self.token >> 'IDENTIFIER'
         table = context.TABLES.get(table_name)
+        # Check exists table
         if not table:
-            logger.error('Table %s not found', table_name)
+            context.statement_logger.error('Table %s not found', table_name)
         insert_statement = context.InsertStatement(procedure, table)
         self.token >> 'VALUES'
         self.token >> 'LPARENT'
         self.argument_list(procedure, insert_statement)
+        # Check num columns and num arguments
+        if table and len(table.columns) != len(insert_statement.arguments):
+            context.statement_logger.error('Incorrect number of arguments')
         self.token >> 'RPARENT'
         self.token >> 'SEMICOLON'
-        procedure.statements.append(insert_statement)
+        procedure.add_statement(insert_statement)
 
     @log(logger)
     def argument_list(self, procedure: context.Procedure, insert_statement: context.InsertStatement):
@@ -221,7 +224,7 @@ class Parser(object):
             sequence_name = self.token >> 'IDENTIFIER'
             sequence = context.SEQUENCES.get(sequence_name)
             if not sequence:
-                logger.error('Sequence %s not found', sequence_name)
+                context.statement_logger.error('Sequence %s not found', sequence_name)
             argument = context.ArgumentSequenceCurrent(sequence_name, sequence)
             self.token >> 'RPARENT'
             insert_statement.arguments.append(argument)
@@ -232,7 +235,7 @@ class Parser(object):
             sequence_name = self.token >> 'IDENTIFIER'
             sequence = context.SEQUENCES.get(sequence_name)
             if not sequence:
-                logger.error('Sequence %s not found', sequence_name)
+                context.statement_logger.error('Sequence %s not found', sequence_name)
             argument = context.ArgumentSequenceNext(sequence_name, sequence)
             self.token >> 'RPARENT'
             insert_statement.arguments.append(argument)
@@ -241,9 +244,9 @@ class Parser(object):
             parameter_name = self.token >> 'PARAMETER'
             parameter = procedure.parameters.get(parameter_name)
             if not parameter:
-                logger.error('Parameter %s not found in procedure parameters', parameter_name)
-            elif isinstance(parameter, context.OutputParameter):
-                logger.error('The parameter %s must be input', parameter_name)
+                context.statement_logger.error('Parameter %s not found in procedure parameters', parameter_name)
+            elif not isinstance(parameter, context.InputParameter):
+                context.statement_logger.error('The parameter %s must be input', parameter_name)
             argument = context.ArgumentParameter(parameter_name, parameter)
             insert_statement.arguments.append(argument)
 
@@ -254,66 +257,68 @@ class Parser(object):
     def select_statement(self, procedure: context.Procedure):
         # SELECT <selection_list> FROM <table_list> WHERE <condition_list> SEMICOLON
         self.token.next()  # self.token >> 'SELECT'
-        statement = context.SelectStatement(procedure)
-        self.selection_list(procedure, statement)
+        select_statement = context.SelectStatement(procedure)
+        self.selection_list(procedure, select_statement)
         self.token >> 'FROM'
-        self.table_list(statement)
-        statement.check_selections()
+        self.table_list(select_statement)
+        select_statement.check_selections()
         self.token >> 'WHERE'
-        conditions = self.condition_list()
+        conditions = self.condition_list(procedure, select_statement)
         self.token.safe() >> 'SEMICOLON'
+        procedure.add_statement(select_statement)
 
     @log(logger)
-    def selection_list(self, procedure: context.Procedure, statement: context.SelectStatement):
+    def selection_list(self, procedure: context.Procedure, select_statement: context.SelectStatement):
         # <selection> (COMMA <selection>)*
-        self.selection(procedure, statement)
+        self.selection(procedure, select_statement)
         while self.token == 'COMMA':
             self.token.next()  # self.token >> 'COMMA'
-            self.selection(procedure, statement)
+            self.selection(procedure, select_statement)
 
     @log(logger)
-    def selection(self, procedure: context.Procedure, statement: context.SelectStatement):
+    def selection(self, procedure: context.Procedure, select_statement: context.SelectStatement):
         # id SET pid
         column_name = self.token >> 'IDENTIFIER'
         self.token >> 'SET'
         parameter_name = self.token >> 'PARAMETER'
         parameter = procedure.parameters.get(parameter_name)
         if not parameter:
-            logger.error('Parameter %s not found in procedure parameters', parameter_name)
+            context.statement_logger.error('Parameter %s not found in procedure parameters', parameter_name)
         elif not isinstance(parameter, context.OutputParameter):
-            logger.error('The parameter %s must be output', parameter_name)
-        statement.raw_selections.append((column_name, parameter))
+            context.statement_logger.error('The parameter %s must be output', parameter_name)
+        select_statement.raw_selections.append((column_name, parameter))
 
     @log(logger)
-    def table_list(self, statement: context.SelectStatement):
+    def table_list(self, select_statement: context.SelectStatement):
         # id (JOIN id)*
         table_name = self.token >> 'IDENTIFIER'
         table = context.TABLES.get(table_name)
         if not table:
-            logger.error('Table %s not found', table_name)
+            context.statement_logger.error('Table %s not found', table_name)
         else:
-            statement.add_table(table)
+            select_statement.add_table(table)
+
         while self.token == 'JOIN':
             self.token.next()  # self.token >> 'JOIN'
             table_name = self.token >> 'IDENTIFIER'
             table = context.TABLES.get(table_name)
             if not table:
-                logger.error('Table %s not found', table_name)
+                context.statement_logger.error('Table %s not found', table_name)
             else:
-                statement.add_table(table)
+                select_statement.add_table(table)
 
     @log(logger)
-    def condition_list(self, procedure: context.Procedure, statement: context.Statement):
+    def condition_list(self, procedure: context.Procedure, select_statement: context.Statement):
         # <condition_simple> (OR|AND <condition_simple>)*
-        cond = self.condition_simple()
+        cond = self.condition_simple(procedure, select_statement)
         interim_out = [[cond]]
         while True:
             if self.token == 'AND':
                 self.token.next()  # self.token >> 'AND'
-                interim_out[-1].append(self.condition_simple)
+                interim_out[-1].append(self.condition_simple(procedure, select_statement))
             elif self.token == 'OR':
                 self.token.next()  # self.token >> 'OR'
-                interim_out.append([self.condition_simple])
+                interim_out.append([self.condition_simple(procedure, select_statement)])
             else:
                 break
         out = (
@@ -326,7 +331,7 @@ class Parser(object):
         return out
 
     @log(logger)
-    def condition_simple(self, procedure: context.Procedure, statement: context.Statement):
+    def condition_simple(self, procedure: context.Procedure, select_statement: context.Statement):
         if self.token == 'LPARENT':
             self.token.next()  # self.token >> 'LPARENT'
             cond = self.condition_list()
@@ -337,10 +342,10 @@ class Parser(object):
         else:
             left = self.token >> 'IDENTIFIER'
             op = self.operator()
-            if self.token >> 'IDENTIFIER':
+            if self.token == 'IDENTIFIER':
                 right = self.token >> 'IDENTIFIER'
                 cond = context.Condition(left, right, op, False)
-            else:
+            elif self.token == 'PARAMETER':
                 right = self.token >> 'PARAMETER'
                 check_name = procedure.parameters.get(right)
                 if not check_name:
@@ -348,6 +353,8 @@ class Parser(object):
                 elif not isinstance(check_name, context.InputParameter):
                     logger.error('The parameter %s must be input', right)
                 cond = context.Condition(left, right, op, True)
+            else:
+                raise Exception  # todo
         return cond
 
     @log(logger)
@@ -369,4 +376,11 @@ class Parser(object):
         # CREATE SEQUENCE id SEMICOLON
         self.token >> 'SEQUENCE'
         sequence_name = self.token >> 'IDENTIFIER'
+        sequence = context.Sequence(sequence_name)
+        check_name = context.VARIABLES.get(sequence_name)
+        if check_name:
+            logger.error('Sequence name `%s` is already used for the %s', sequence_name, check_name)
+        else:
+            context.SEQUENCES[sequence_name] = sequence
+            context.VARIABLES[sequence_name] = 'sequence'
         self.token >> 'SEMICOLON'

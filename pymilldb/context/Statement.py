@@ -44,12 +44,12 @@ class SelectStatement(Statement):
     def add_table(self, table: Table):
         check_name = self.tables.get(table.name)
         if check_name:
-            pass
+            logger.error('Table %s is already used', table.name)
         else:
             self.tables[table.name] = {
+                'table': table,
                 'index': len(self.tables),
                 'has_pl_cond': False,
-
             }
 
     def check_selections(self):
@@ -57,7 +57,8 @@ class SelectStatement(Statement):
             tables = [
                 (table, column)
 
-                for table in self.tables.values()
+                for data in self.tables.values()
+                for table in [data['table']]
                 for column in [table.columns.get(column_name)]
                 if column
             ]
@@ -69,7 +70,8 @@ class SelectStatement(Statement):
             else:
                 logger.error('Not found table containing column %s', column_name)
                 continue
-            # todo check type
+            if column.kind != parameter.kind:
+                logger.error('Incompatible types parameter %s and column %s', column.name, parameter.name)
             selection = Selection(column, parameter)
             self.selections.append(selection)
 

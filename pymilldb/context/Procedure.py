@@ -1,7 +1,7 @@
 import logging
 
 from .Parameter import Parameter
-from .Statement import Statement
+from .Statement import Statement, InsertStatement, SelectStatement
 
 logger = logging.getLogger('Procedure')
 
@@ -40,4 +40,8 @@ class Procedure(object):
             self.parameters[parameter.name] = parameter
 
     def add_statement(self, statement: Statement):
-        pass
+        if isinstance(statement, InsertStatement) and self.is_read:
+            logger.error('Insert statement only for procedure write mode')
+        elif isinstance(statement, SelectStatement) and self.is_write:
+            logger.error('Select statement only for procedure read mode')
+        self.statements.append(statement)

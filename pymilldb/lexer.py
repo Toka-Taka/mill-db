@@ -39,6 +39,7 @@ KEYWORDS = {
 
     "procedure": "PROCEDURE",
     "begin": "BEGIN",
+    "end": "END",
     "in": "IN",
     "out": "OUT",
     "set": "SET",

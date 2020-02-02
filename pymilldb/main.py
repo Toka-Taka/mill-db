@@ -24,9 +24,9 @@ def main(path):
     logger.info('context.TABLES %s', context.TABLES)
     logger.info('context.VARIABLES %s', context.VARIABLES)
 
-    env = jinja2.Environment(loader=jinja2.FileSystemLoader('pymilldb/template'))
-    temp = env.get_template('Table.c')
-    with open('out.c', 'w') as f:
-        for key, value in context.TABLES.items():
-            f.write(temp.render(table=value, context=context))
-            f.write('\n')
+    # env = jinja2.Environment(loader=jinja2.FileSystemLoader('pymilldb/template'))
+    # temp = env.get_template('Table.c')
+    # with open('out.c', 'w') as f:
+    #     for key, value in context.TABLES.items():
+    #         f.write(temp.render(table=value, context=context))
+    #         f.write('\n')

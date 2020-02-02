@@ -6,7 +6,7 @@ import yaml
 
 
 def setup_logging(
-        default_path='logging.yaml',
+        default_path='pymilldb/logging.yaml',
         default_level=logging.DEBUG,
         env_key='LOG_CFG'
 ):

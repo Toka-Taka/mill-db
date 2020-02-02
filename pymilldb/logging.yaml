@@ -11,5 +11,8 @@ handlers:
     stream: ext://sys.stdout
 loggers:
   lexer:
+    level: ERROR
+    handlers: [console]
+  parser:
     level: DEBUG
     handlers: [console]

@@ -39,6 +39,17 @@ class BaseType(abc.ABC):
     def compare_greater_expr(self, s1, col1, s2, col2):
         pass
 
+    def __eq__(self, other):
+        if self.type_name != other.type_name:
+            return False
+        else:
+            if isinstance(self, Char):
+                return self.size == other.size
+            return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 class ConstType(BaseType):
     @classmethod
