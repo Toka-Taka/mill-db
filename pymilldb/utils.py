@@ -1,12 +1,18 @@
 import logging
 
+size = 0
+step = 2
+
 
 def log(logger=logging, level=logging.DEBUG, name=None):
     def decorator(func):
         def new_func(*args, **kwargs):
-            logger.log(level, 'Start parse %s', func.__name__ if name is None else name)
+            global size
+            logger.log(level, '%s> %s', ' ' * size, func.__name__ if name is None else name)
+            size += step
             out = func(*args, **kwargs)
-            logger.log(level, 'End parse %s', func.__name__ if name is None else name)
+            size -= step
+            logger.log(level, '%s< %s', ' ' * size, func.__name__ if name is None else name)
             return out
         return new_func
     return decorator
