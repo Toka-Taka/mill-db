@@ -24,9 +24,26 @@ def main(path):
     logger.info('context.TABLES %s', context.TABLES)
     logger.info('context.VARIABLES %s', context.VARIABLES)
 
-    # env = jinja2.Environment(loader=jinja2.FileSystemLoader('pymilldb/template'))
-    # temp = env.get_template('Table.c')
-    # with open('out.c', 'w') as f:
-    #     for key, value in context.TABLES.items():
-    #         f.write(temp.render(table=value, context=context))
-    #         f.write('\n')
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader('pymilldb/template'))
+    env.globals['isinstance'] = isinstance
+    env.globals['zip'] = zip
+    temp = env.get_template('Environment.c')
+    with open('out.c', 'w') as f:
+        f.write(temp.render(context=context))
+
+"""
+void {{ procedure.name }}_{{ loop.index }}(
+{%- if procedure.is_write -%}
+    {{ statement.print_full_signature(procedure.name) }}
+{%- elif procedure.is_read -%}
+    struct {{ procedure.name }}_out* iter
+    {%- for param in procedure.parameters.values() -%}
+        {%- if param.mode == 'IN' -%}
+            , {{ param.signature }}
+        {%- endif -%}
+    {%- endfor -%}
+{%- endif -%}
+) {
+    statement.print(procedure.name)
+}
+"""
