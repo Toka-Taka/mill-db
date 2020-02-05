@@ -11,20 +11,8 @@ void {{ procedure.name }}_add(struct {{ procedure.name }}_out* iter, struct {{ p
     }
     memcpy(&(service->set[service->length++]), selected, sizeof(struct {{ procedure.name }}_out_data));
 }
-
 {%- for statement in procedure.statements %}
-
-void {{ procedure.name }}_{{ loop.index }}(
-    struct {{ procedure.name }}_out* iter
-    {%- set comma = joiner(', ') -%}
-    {%- for param in procedure.parameters.values() -%}
-        {%- if param.is_input -%}
-            {{ comma() }}{{ param.signature }}
-        {%- endif -%}
-    {%- endfor -%}
-) {
-    statement.print(procedure.name)
-}
+{% include 'SelectStatement.c' %}
 {%- endfor %}
 
 void {{ procedure.name }}_init(struct {{ procedure.name }}_out* iter, struct {{ context.NAME }}_handle* handle

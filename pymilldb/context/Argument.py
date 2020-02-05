@@ -21,7 +21,7 @@ class ArgumentParameter(Argument):
 
     @property
     def print(self):
-        return
+        return self.parameter.name
 
     @property
     def signature(self):

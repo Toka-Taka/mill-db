@@ -50,6 +50,7 @@ class SelectStatement(Statement):
                 'table': table,
                 'index': len(self.tables),
                 'has_pl_cond': False,
+                'conditions': [],
             }
 
     def check_selections(self):

@@ -1,32 +1,23 @@
 {%- for statement in procedure.statements %}
-
-void {{ procedure.name }}_{{ loop.index }}(
-    {%- set comma = joiner(', ') -%}
-    {%- for arg in statement.arguments -%}
-        {%- if arg.signature %}{{ comma() }}{{ arg.signature }}{%- endif -%}
-    {%- endfor -%}
-) {
-    struct {{ statement.table.name }}* inserted = {{ statement.table.name }}_new();
-    {%- for col, arg in zip(statement.table.columns.values(), statement.arguments) %}
-    {%- if isinstance(col.kind, context.Char) %}
-    memcpy(inserted->{{ col.name }}, {{ arg.name }}, {{ col.kind.size }});
-    {%- else %}
-    inserted->{{ col.name }} =
-        {%- if isinstance(arg, context.ArgumentSequenceCurrent) -%}
-            {{' ' ~ arg.name }}
-        {%- elif isinstance(arg, context.ArgumentSequenceNext) -%}
-            {{' ++' ~ arg.name }}
-        {%- elif isinstance(arg, context.ArgumentParameter) -%}
-            {{' ' ~ arg.name }}
-        {%- endif %};
-    {%- endif %}
-    {%- endfor %}
-    {{ statement.table.name }}_buffer_add(inserted);
-}
+{% include 'InsertStatement.c' %}
 {%- endfor %}
 
-void {{ procedure.name }} ({{ procedure.parameters.values() | map(attribute='signature') | join(', ') }}) {
+void {{ procedure.name }}(
+    {%- set comma = joiner(', ') -%}
+    {%- for param in procedure.parameters.values() -%}
+        {%- if param.signature -%}
+            {{ comma() }}{{ param.signature }}
+        {%- endif -%}
+    {%- endfor -%}
+) {
     {%- for statement in procedure.statements %}
-    {{ procedure.name }}_{{ loop.index }}({{ statement.print_argument }});
+    {{ procedure.name }}_{{ loop.index }}(
+        {%- set comma = joiner(', ') -%}
+        {%- for arg in statement.arguments -%}
+            {%- if arg.print -%}
+                {{ comma() }}{{ arg.print }}
+            {%- endif -%}
+        {%- endfor -%}
+    );
     {%- endfor %}
 }
